@@ -1,37 +1,41 @@
 [app]
-# Название приложения (будет под иконкой)
+# Название на экране телефона
 title = Проверка Чеков
 
-# Техническое имя (только английские буквы)
+# Технические имена
 package.name = kktscanner
 package.domain = org.test
 
-# Где лежит код
+# Папка с кодом
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,json
 
-# Версия
-version = 0.1
+# Версия приложения
+version = 1.0
 
-# ВАЖНО: Список библиотек (добавлены pillow и openssl от вылетов)
-requirements = python3, kivy==2.3.0, kivymd, requests, urllib3, certifi, idna, charset-normalizer, pillow, openssl
+# --- ГЛАВНОЕ: СПИСОК БИБЛИОТЕК ---
+# libzbar и pyzbar нужны для QR-кода
+# pillow и openssl - чтобы не вылетало
+requirements = python3, kivy==2.3.0, kivymd, requests, urllib3, certifi, idna, charset-normalizer, pillow, openssl, pyzbar, libzbar
 
-# Настройки экрана
+# Ориентация (портретная, как у всех приложений)
 orientation = portrait
 fullscreen = 0
 
-# Разрешения (Интернет + Камера)
+# --- РАЗРЕШЕНИЯ ---
+# Интернет для проверки, Камера для сканера
 android.permissions = INTERNET, CAMERA
 
-# Настройки Android (современные)
+# Настройки Android
 android.api = 33
 android.minapi = 21
 android.ndk = 25b
 android.ndk_api = 21
 
-# Архитектура (одна, чтобы GitHub не зависал)
+# Архитектура (одна, чтобы сборка не зависала)
 android.archs = arm64-v8a
 
 [buildozer]
+# Уровень логов (2 - показывает ошибки)
 log_level = 2
 warn_on_root = 1
