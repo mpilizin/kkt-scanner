@@ -16,7 +16,7 @@ version = 1.0
 # --- ГЛАВНОЕ: СПИСОК БИБЛИОТЕК ---
 # libzbar и pyzbar нужны для QR-кода
 # pillow и openssl - чтобы не вылетало
-requirements = python3, kivy==2.3.0, kivymd, requests, urllib3, certifi, idna, charset-normalizer, pillow, openssl, pyzbar, libzbar
+requirements = python3, kivy==2.3.0, kivymd, requests, urllib3, certifi, idna, charset-normalizer, pillow, openssl, pyzbar, zbar
 
 # Ориентация (портретная, как у всех приложений)
 orientation = portrait
