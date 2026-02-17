@@ -8,6 +8,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # ШАГ-СПАСИТЕЛЬ: Устанавливаем Java 17
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -22,6 +29,7 @@ jobs:
 
       - name: Build APK
         run: |
+          # Автоматически принимаем лицензии и запускаем сборку
           yes | buildozer -v android debug
 
       - name: Upload APK
