@@ -7,62 +7,76 @@ from kivymd.app import MDApp
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivymd.uix.pickers import MDDatePicker, MDTimePicker
 from kivymd.uix.boxlayout import MDBoxLayout
-from kivymd.uix.button import MDRaisedButton, MDFlatButton
+from kivymd.uix.label import MDLabel
+from kivymd.uix.button import MDRaisedButton, MDIconButton
 from kivymd.uix.dialog import MDDialog
-from kivymd.uix.list import TwoLineListItem, OneLineListItem
+from kivymd.uix.list import TwoLineListItem, IconLeftWidget
 from kivy.storage.jsonstore import JsonStore
-from kivy.properties import StringProperty
+from kivy.clock import Clock
+from kivy.uix.camera import Camera
+from kivy.graphics.texture import Texture
+from kivy.utils import platform
+
+# Попытка импорта сканера (чтобы не вылетало на Windows при тестах)
+try:
+    from pyzbar.pyzbar import decode
+    from PIL import Image as PilImage
+except ImportError:
+    decode = None
 
 # --- НАСТРОЙКИ ---
-# Сюда вставь адрес своего скрипта на сервере
-API_URL = "https://твоя-ссылка.ru/api/check" 
+API_URL = "https://proverkacheka.nalog.ru/api/v1/inns/*/kkts/*/fss/*/tickets/*"
 
 KV = '''
 ScreenManager:
     ConsentScreen:
     HomeScreen:
+    ScannerScreen:
     ResultScreen:
+    HistoryScreen:
 
-# --- ЭКРАН 1: СОГЛАСИЕ (Появляется только 1 раз) ---
+# --- 1. ЭКРАН СОГЛАСИЯ ---
 <ConsentScreen>:
     name: 'consent'
     MDBoxLayout:
         orientation: 'vertical'
-        padding: "20dp"
+        padding: "30dp"
         spacing: "20dp"
 
-        MDLabel:
-            text: "Согласие на обработку данных"
+        MDIcon:
+            icon: "security"
             halign: "center"
-            font_style: "H5"
-            size_hint_y: None
-            height: self.texture_size[1]
+            font_size: "80sp"
+            theme_text_color: "Custom"
+            text_color: 0.2, 0.4, 0.8, 1
 
         MDLabel:
-            text: "Для использования приложения необходимо разрешить отправку данных ФН (Фискальный Накопитель) и ФД (Фискальный Документ) на сервер для проверки чеков в ФНС."
+            text: "Правовая информация"
+            halign: "center"
+            font_style: "H5"
+            bold: True
+
+        MDLabel:
+            text: "Приложение отправляет данные чека в ФНС для проверки подлинности. Нажимая кнопку, вы соглашаетесь с условиями."
             halign: "center"
             theme_text_color: "Secondary"
 
-        MDBoxLayout:
-            orientation: 'vertical'
-            spacing: "10dp"
-            adaptive_height: True
+        MDRaisedButton:
+            text: "ПРИНЯТЬ И ПРОДОЛЖИТЬ"
+            size_hint_x: 1
+            height: "50dp"
+            md_bg_color: 0, 0.6, 0, 1
+            on_release: root.accept_terms()
 
-            MDRaisedButton:
-                text: "Я ПРИНИМАЮ УСЛОВИЯ"
-                size_hint_x: 1
-                md_bg_color: 0, 0.6, 0, 1
-                on_release: root.accept_terms()
-
-# --- ЭКРАН 2: ГЛАВНЫЙ (Ввод данных) ---
+# --- 2. ГЛАВНЫЙ ЭКРАН ---
 <HomeScreen>:
     name: 'home'
-    
     MDBoxLayout:
         orientation: 'vertical'
 
         MDTopAppBar:
-            title: "Сканер Чеков"
+            title: "Проверка Чеков"
+            right_action_items: [["history", lambda x: root.open_history()]]
             elevation: 2
 
         ScrollView:
@@ -70,37 +84,63 @@ ScreenManager:
                 orientation: 'vertical'
                 adaptive_height: True
                 padding: "20dp"
-                spacing: "25dp"  # Большой отступ, чтобы не наезжало
+                spacing: "20dp"
 
-                # Поля ввода (Старый строгий стиль)
+                # КНОПКА СКАНЕРА
+                MDCard:
+                    orientation: 'vertical'
+                    size_hint_y: None
+                    height: "140dp"
+                    radius: [15]
+                    padding: "15dp"
+                    md_bg_color: 0.9, 0.95, 1, 1
+                    elevation: 2
+                    on_release: root.open_scanner()
+                    ripple_behavior: True
+
+                    MDIcon:
+                        icon: "qrcode-scan"
+                        halign: "center"
+                        font_size: "50sp"
+                        theme_text_color: "Custom"
+                        text_color: 0.2, 0.4, 0.8, 1
+                    
+                    MDLabel:
+                        text: "СКАНИРОВАТЬ QR-КОД"
+                        halign: "center"
+                        bold: True
+                        font_style: "Subtitle1"
+
+                MDLabel:
+                    text: "— или введите вручную —"
+                    halign: "center"
+                    theme_text_color: "Hint"
+
                 MDTextField:
                     id: sum_field
-                    hint_text: "Сумма чека (например: 1142.00)"
-                    helper_text: "В рублях и копейках"
+                    hint_text: "Сумма (1200.00)"
                     input_filter: 'float'
                     mode: "fill"
 
                 MDTextField:
                     id: fn_field
-                    hint_text: "ФН (Номер накопителя)"
+                    hint_text: "ФН (Накопитель)"
                     input_filter: 'int'
                     mode: "fill"
 
                 MDTextField:
                     id: fd_field
-                    hint_text: "ФД (Номер документа)"
+                    hint_text: "ФД (Документ)"
                     input_filter: 'int'
                     mode: "fill"
 
                 MDTextField:
                     id: fp_field
-                    hint_text: "ФП (Фискальный признак)"
+                    hint_text: "ФП (Признак)"
                     input_filter: 'int'
                     mode: "fill"
 
-                # Блок Даты и Времени
                 MDBoxLayout:
-                    orientation: 'horizontal'
                     spacing: "10dp"
                     adaptive_height: True
 
@@ -108,57 +148,154 @@ ScreenManager:
                         id: date_btn
                         text: "ДАТА"
                         size_hint_x: 0.5
+                        md_bg_color: 0.5, 0.5, 0.5, 1
                         on_release: root.show_date_picker()
 
                     MDRaisedButton:
                         id: time_btn
-                        text: "ВРЕМЯ (24ч)"
+                        text: "ВРЕМЯ"
                         size_hint_x: 0.5
+                        md_bg_color: 0.5, 0.5, 0.5, 1
                         on_release: root.show_time_picker()
 
-                MDLabel:
-                    id: date_label
-                    text: "Не выбрано"
-                    halign: "center"
-                    theme_text_color: "Hint"
-
-                # Кнопка проверки
                 MDRaisedButton:
                     text: "ПРОВЕРИТЬ ЧЕК"
                     size_hint_x: 1
                     height: "50dp"
-                    md_bg_color: 0.2, 0.4, 0.8, 1
+                    font_size: "18sp"
                     on_release: root.check_receipt()
 
-                # История (снизу, чтобы не мешала)
-                MDFlatButton:
-                    text: "История запросов"
-                    pos_hint: {"center_x": .5}
-                    on_release: pass 
+# --- 3. СКАНЕР ---
+<ScannerScreen>:
+    name: 'scanner'
+    FloatLayout:
+        Camera:
+            id: camera
+            resolution: (640, 480)
+            play: False
+            keep_ratio: False
+            allow_stretch: True
 
-# --- ЭКРАН 3: РЕЗУЛЬТАТ (Полная детализация) ---
+        MDLabel:
+            text: "[   ]"
+            halign: "center"
+            font_size: "300sp"
+            color: 0, 1, 0, 0.3
+            pos_hint: {'center_x': .5, 'center_y': .5}
+
+        MDRaisedButton:
+            text: "ОТМЕНА"
+            pos_hint: {'center_x': .5, 'y': 0.05}
+            md_bg_color: 1, 0, 0, 1
+            on_release: root.stop_scan()
+
+# --- 4. РЕЗУЛЬТАТ (ДИЗАЙН БУМАЖНОГО ЧЕКА) ---
 <ResultScreen>:
     name: 'result'
-    
+    MDBoxLayout:
+        orientation: 'vertical'
+        md_bg_color: 0.9, 0.9, 0.9, 1  # Серый фон вокруг чека
+
+        MDTopAppBar:
+            title: "Чек"
+            left_action_items: [["arrow-left", lambda x: root.go_home()]]
+
+        ScrollView:
+            padding: "20dp"
+            
+            # БЕЛАЯ БУМАЖКА ЧЕКА
+            MDCard:
+                orientation: 'vertical'
+                size_hint_y: None
+                height: self.minimum_height
+                padding: "15dp"
+                radius: [0]
+                md_bg_color: 1, 1, 1, 1
+                elevation: 3
+                pos_hint: {"center_x": .5}
+                size_hint_x: 0.95
+
+                # ЗАГОЛОВОК ЧЕКА
+                MDLabel:
+                    id: shop_label
+                    text: "МАГАЗИН"
+                    halign: "center"
+                    bold: True
+                    font_style: "H6"
+                    adaptive_height: True
+
+                MDLabel:
+                    id: address_label
+                    text: "Адрес магазина"
+                    halign: "center"
+                    theme_text_color: "Secondary"
+                    font_style: "Caption"
+                    adaptive_height: True
+                    padding_y: "10dp"
+
+                MDSeparator:
+                    height: "2dp"
+
+                # СПИСОК ТОВАРОВ (Заполняется кодом)
+                MDBoxLayout:
+                    id: items_box
+                    orientation: 'vertical'
+                    adaptive_height: True
+                    padding: [0, 10, 0, 10]
+                    spacing: "10dp"
+
+                MDSeparator:
+                    height: "2dp"
+
+                # ИТОГИ
+                MDBoxLayout:
+                    adaptive_height: True
+                    padding: [0, 10, 0, 0]
+                    
+                    MDLabel:
+                        text: "ИТОГ:"
+                        bold: True
+                        font_style: "H6"
+                    
+                    MDLabel:
+                        id: total_label
+                        text: "0.00"
+                        halign: "right"
+                        bold: True
+                        font_style: "H6"
+
+                MDLabel:
+                    id: payment_type_label
+                    text: "Оплата: -"
+                    halign: "right"
+                    font_style: "Caption"
+                    adaptive_height: True
+
+                MDLabel:
+                    text: "*** ККТ ОНЛАЙН ***"
+                    halign: "center"
+                    theme_text_color: "Hint"
+                    font_style: "Overline"
+                    padding_y: "20dp"
+                    adaptive_height: True
+
+# --- 5. ИСТОРИЯ ---
+<HistoryScreen>:
+    name: 'history'
     MDBoxLayout:
         orientation: 'vertical'
 
         MDTopAppBar:
-            title: "Детали Чека"
-            left_action_items: [["arrow-left", lambda x: root.go_back()]]
+            title: "История запросов"
+            left_action_items: [["arrow-left", lambda x: root.go_home()]]
 
         ScrollView:
-            MDBoxLayout:
-                id: result_box
-                orientation: 'vertical'
-                adaptive_height: True
-                padding: "15dp"
-                spacing: "10dp"
+            MDList:
+                id: history_list
 '''
 
 class ConsentScreen(Screen):
     def accept_terms(self):
-        # Запоминаем, что пользователь согласился
         app = MDApp.get_running_app()
         app.store.put('user_settings', agreed=True)
         app.root.current = 'home'
@@ -168,126 +305,187 @@ class HomeScreen(Screen):
     time_val = ""
 
     def show_date_picker(self):
-        date_dialog = MDDatePicker()
-        date_dialog.bind(on_save=self.on_date_save)
-        date_dialog.open()
+        MDDatePicker(min_year=2020, max_year=2030).open()
+        # Привязка через bind происходит внутри MDDatePicker, 
+        # но в старых версиях лучше переопределить on_save
+        picker = MDDatePicker()
+        picker.bind(on_save=self.on_date_save)
+        picker.open()
 
     def on_date_save(self, instance, value, date_range):
         self.date_val = value.strftime("%Y-%m-%d")
-        self.update_label()
+        self.ids.date_btn.text = self.date_val
 
     def show_time_picker(self):
-        # Пытаемся открыть часы. В KivyMD это стандартный виджет.
-        time_dialog = MDTimePicker()
-        time_dialog.bind(on_save=self.on_time_save)
-        time_dialog.open()
+        # Принудительно ставим время, но формат зависит от настроек телефона
+        # Мы просто правильно отформатируем результат
+        picker = MDTimePicker()
+        picker.bind(on_save=self.on_time_save)
+        picker.open()
 
     def on_time_save(self, instance, time):
-        self.time_val = time.strftime("%H:%M")
-        self.update_label()
+        self.time_val = time.strftime("%H:%M") # Всегда 24 часа
+        self.ids.time_btn.text = self.time_val
 
-    def update_label(self):
-        d = self.date_val if self.date_val else "--.--.----"
-        t = self.time_val if self.time_val else "--:--"
-        self.ids.date_label.text = f"Дата: {d} | Время: {t}"
+    def open_scanner(self):
+        self.manager.current = 'scanner'
+        self.manager.get_screen('scanner').start_scan()
+
+    def open_history(self):
+        # Загружаем историю перед показом
+        self.manager.get_screen('history').load_history()
+        self.manager.current = 'history'
 
     def check_receipt(self):
-        # 1. Собираем данные
         sum_text = self.ids.sum_field.text.replace(',', '.')
         fn = self.ids.fn_field.text
         fd = self.ids.fd_field.text
         fp = self.ids.fp_field.text
 
         if not (sum_text and fn and fd and fp):
-            self.show_alert("Ошибка", "Заполните все поля!")
-            return
+            return 
 
-        # 2. Формируем запрос
-        payload = {
-            "fn": fn,
-            "fd": fd,
-            "fp": fp,
-            "sum": int(float(sum_text) * 100), # Переводим рубли в копейки
-            "date": self.date_val,
-            "time": self.time_val
+        # Данные запроса
+        request_data = {
+            "fn": fn, "fd": fd, "fp": fp, "sum": sum_text, 
+            "date": self.date_val, "time": self.time_val
         }
 
-        # 3. Отправляем (Или имитируем для теста, если сервер недоступен)
         try:
-            # response = requests.post(API_URL, json=payload, timeout=10)
-            # data = response.json()
-            
-            # --- ВРЕМЕННАЯ ЗАГЛУШКА (Твой JSON для примера) ---
-            # Когда настроишь сервер, удали блок ниже и раскомментируй requests
+            # ТЕСТОВЫЙ JSON (Имитация ответа ФНС)
             json_str = """
-            {"code":3,"user":"БАЙКОВА ИРИНА ВИКТОРОВНА","items":[{"nds":6,"sum":113700,"name":"кондитерские изделия","price":113700,"ndsSum":113700,"quantity":1.0,"paymentType":4,"productType":1,"itemsQuantityMeasure":0},{"nds":6,"sum":500,"name":"сопутствуюшие товары","price":500,"ndsSum":500,"quantity":1.0,"paymentType":4,"productType":1,"itemsQuantityMeasure":0}],"ndsNo":114200,"region":"77","userInn":"504408878360","dateTime":1771350360,"retailPlaceAddress":"124536 Москва.Зеленоград, МЖК, корп. 522, магазин продукты","totalSum":114200}
+            {"code":3,"user":"ООО 'ВКУСНЫЕ ПРОДУКТЫ'","items":[{"nds":6,"sum":113700,"name":"Хлеб Бородинский нарезанный в упаковке 400г","price":113700,"quantity":1.0,"paymentType":4},{"nds":6,"sum":500,"name":"Пакет майка","price":500,"quantity":1.0,"paymentType":1}],"retailPlaceAddress":"г. Москва, ул. Ленина, д. 10","totalSum":114200,"ecashTotalSum":114200,"cashTotalSum":0}
             """
-            data = json.loads(json_str)
-            # --------------------------------------------------
+            result_data = json.loads(json_str)
 
-            # Переходим на экран результата и передаем данные
-            self.manager.get_screen('result').display_data(data)
+            # Сохраняем в историю
+            MDApp.get_running_app().add_history(request_data, result_data)
+
+            # Показываем чек
+            self.manager.get_screen('result').render_receipt(result_data)
             self.manager.current = 'result'
 
         except Exception as e:
-            self.show_alert("Ошибка соединения", str(e))
+            print(e)
 
-    def show_alert(self, title, text):
-        MDDialog(title=title, text=text, buttons=[MDFlatButton(text="OK", on_release=lambda x: x.parent.parent.dismiss())]).open()
+class ScannerScreen(Screen):
+    def start_scan(self):
+        self.ids.camera.play = True
+        # Запускаем проверку QR кода 2 раза в секунду
+        Clock.schedule_interval(self.detect_qr, 0.5)
 
-class ResultScreen(Screen):
-    def go_back(self):
+    def stop_scan(self):
+        self.ids.camera.play = False
+        Clock.unschedule(self.detect_qr)
         self.manager.current = 'home'
 
-    def display_data(self, data):
-        box = self.ids.result_box
-        box.clear_widgets() # Очистить старое
+    def detect_qr(self, dt):
+        if not decode: return # Если библиотека не загрузилась
 
-        # 1. Заголовок (Магазин)
-        shop_name = data.get('user', 'Неизвестный магазин')
-        address = data.get('retailPlaceAddress', '')
+        # Получаем картинку с камеры
+        texture = self.ids.camera.texture
+        if not texture: return
         
-        box.add_widget(OneLineListItem(text=f"{shop_name}", font_style="H6"))
-        box.add_widget(TwoLineListItem(text="Адрес:", secondary_text=address))
+        # Конвертируем в формат для сканера
+        pil_image = PilImage.frombytes(mode='RGBA', size=texture.size, data=texture.pixels)
+        
+        # Ищем коды
+        barcodes = decode(pil_image)
+        for barcode in barcodes:
+            qr_text = barcode.data.decode('utf-8')
+            # Если нашли QR с чека (там всегда есть t=...)
+            if "t=" in qr_text and "s=" in qr_text:
+                self.stop_scan()
+                # Заполняем поля на главном экране
+                self.manager.get_screen('home').fill_from_qr(qr_text)
 
-        # 2. Список товаров (Самое важное!)
-        if 'items' in data:
-            box.add_widget(OneLineListItem(text="--- ТОВАРЫ ---", theme_text_color="Hint"))
-            for item in data['items']:
-                name = item.get('name', 'Товар')
-                # Цена приходит в копейках (113700 -> 1137.00)
-                price = item.get('price', 0) / 100
-                qty = item.get('quantity', 1)
-                final_sum = item.get('sum', 0) / 100
-                
-                # Добавляем в список
-                item_widget = TwoLineListItem(
-                    text=f"{name}",
-                    secondary_text=f"{qty} шт. x {price} = {final_sum} руб."
-                )
-                box.add_widget(item_widget)
+class ResultScreen(Screen):
+    def go_home(self):
+        self.manager.current = 'home'
 
-        # 3. Итог
-        total = data.get('totalSum', 0) / 100
-        box.add_widget(OneLineListItem(text="--- ИТОГО ---", theme_text_color="Hint"))
-        box.add_widget(OneLineListItem(text=f"СУММА: {total} руб.", bg_color=(0.9, 0.9, 0.9, 1)))
+    def render_receipt(self, data):
+        self.ids.shop_label.text = data.get('user', 'Магазин')
+        self.ids.address_label.text = data.get('retailPlaceAddress', '')
+        
+        # Очистка старых товаров
+        box = self.ids.items_box
+        box.clear_widgets()
+
+        # Генерация списка товаров
+        for item in data.get('items', []):
+            name = item.get('name', 'Товар')
+            price = item.get('price', 0) / 100
+            qty = item.get('quantity', 1)
+            total = item.get('sum', 0) / 100
+            
+            # Строка товара: Название (с переносом)
+            box.add_widget(MDLabel(text=name, adaptive_height=True, theme_text_color="Primary"))
+            
+            # Строка цены: 1 x 100.00 = 100.00
+            price_row = MDBoxLayout(adaptive_height=True)
+            price_row.add_widget(MDLabel(text=f"{qty} x {price:.2f}", theme_text_color="Secondary", font_style="Caption"))
+            price_row.add_widget(MDLabel(text=f"={total:.2f}", halign="right", bold=True))
+            box.add_widget(price_row)
+            
+            # Разделитель пунктиром (символический)
+            box.add_widget(MDLabel(text="- " * 20, theme_text_color="Hint", font_style="Caption", halign="center"))
+
+        # Итог
+        total_sum = data.get('totalSum', 0) / 100
+        self.ids.total_label.text = f"{total_sum:.2f} ₽"
+
+        # Тип оплаты
+        payment = "Наличными"
+        if data.get('ecashTotalSum', 0) > 0:
+            payment = "Безналичными (Карта)"
+        self.ids.payment_type_label.text = f"Оплата: {payment}"
+
+class HistoryScreen(Screen):
+    def go_home(self):
+        self.manager.current = 'home'
+
+    def load_history(self):
+        history_list = self.ids.history_list
+        history_list.clear_widgets()
+        store = MDApp.get_running_app().store
+        
+        # Читаем историю
+        for key in sorted(store.keys(), reverse=True):
+            entry = store.get(key)
+            req = entry['request']
+            res = entry['result']
+            
+            # Создаем элемент списка
+            item = TwoLineListItem(
+                text=f"{res.get('user', 'Магазин')} ({req['sum']} руб)",
+                secondary_text=f"{req['date']} {req['time']}",
+                on_release=lambda x, r=res: self.show_details(r)
+            )
+            history_list.add_widget(item)
+
+    def show_details(self, result_data):
+        # Открываем экран результата с сохраненными данными
+        app = MDApp.get_running_app()
+        app.root.get_screen('result').render_receipt(result_data)
+        app.root.current = 'result'
 
 class CheckApp(MDApp):
     store = None
 
     def build(self):
         self.theme_cls.primary_palette = "Indigo"
-        # Создаем хранилище для настроек
-        data_dir = self.user_data_dir
-        self.store = JsonStore(os.path.join(data_dir, "settings.json"))
+        self.store = JsonStore(os.path.join(self.user_data_dir, "history.json"))
         return Builder.load_string(KV)
 
     def on_start(self):
-        # Проверяем, согласился ли пользователь ранее
         if self.store.exists('user_settings') and self.store.get('user_settings')['agreed']:
             self.root.current = 'home'
         else:
             self.root.current = 'consent'
+
+    def add_history(self, req, res):
+        key = datetime.now().strftime("%Y%m%d%H%M%S")
+        self.store.put(key, request=req, result=res)
 
 if __name__ == '__main__':
     CheckApp().run()
