@@ -1,5 +1,5 @@
 [app]
-title = KKT Scanner
+title = Проверка Чеков
 package.name = kktscanner
 package.domain = org.test
 source.dir = .
