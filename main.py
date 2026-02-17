@@ -1,19 +1,33 @@
-from kivymd.app import MDApp
-from kivy.lang import Builder
-from kivy.uix.screenmanager import ScreenManager, Screen
-from kivymd.uix.pickers import MDDatePicker, MDTimePicker
-from kivymd.uix.dialog import MDDialog
-from kivymd.uix.button import MDFlatButton
-from kivymd.uix.list import TwoLineAvatarIconListItem, IconLeftWidget
-from kivy.storage.jsonstore import JsonStore
-from datetime import datetime
-import requests
-import json
+import traceback
+import os
 
-# Твой API (замени на реальный адрес сервера, если он есть)
-API_URL = "https://твоя-ссылка-на-сервер.com/api/check"
+# Сначала пробуем импортировать Kivy. Если даже его нет - это сразу ошибка.
+try:
+    from kivy.app import App
+    from kivy.uix.label import Label
+    from kivy.uix.scrollview import ScrollView
+    from kivy.base import runTouchApp
+    from kivy.lang import Builder
+except Exception:
+    pass # Обработаем ниже
 
-KV = '''
+# ГЛАВНЫЙ БЛОК ЗАПУСКА
+try:
+    # --- ТВОЙ ОСНОВНОЙ КОД НАЧИНАЕТСЯ ЗДЕСЬ ---
+    from kivymd.app import MDApp
+    from kivy.uix.screenmanager import ScreenManager, Screen
+    from kivymd.uix.pickers import MDDatePicker, MDTimePicker
+    from kivymd.uix.dialog import MDDialog
+    from kivymd.uix.button import MDFlatButton
+    from kivymd.uix.list import TwoLineAvatarIconListItem, IconLeftWidget
+    from kivy.storage.jsonstore import JsonStore
+    from datetime import datetime
+    
+    # Пытаемся импортировать requests. Если его нет в buildozer.spec - тут вылетит.
+    import requests
+    import json
+
+    KV = '''
 ScreenManager:
     HomeScreen:
     ResultScreen:
@@ -111,7 +125,7 @@ ScreenManager:
                     text: "ПРОВЕРИТЬ В ИФНС"
                     size_hint_x: 1
                     disabled: True
-                    md_bg_color: 0, 0.5, 0, 1  # Зеленый цвет
+                    md_bg_color: 0, 0.5, 0, 1
                     on_release: root.check_receipt()
 
                 MDRaisedButton:
@@ -119,14 +133,6 @@ ScreenManager:
                     size_hint_x: 1
                     md_bg_color: 0.2, 0.2, 0.2, 1
                     on_release: app.root.current = 'history'
-
-                MDLabel:
-                    text: "Разработано: KKT Master"
-                    halign: "center"
-                    theme_text_color: "Hint"
-                    font_style: "Overline"
-                    size_hint_y: None
-                    height: "30dp"
 
 <ResultScreen>:
     name: 'result'
@@ -164,129 +170,141 @@ ScreenManager:
                 id: history_list
 '''
 
-class HomeScreen(Screen):
-    date_str = ""
-    time_str = ""
+    class HomeScreen(Screen):
+        date_str = ""
+        time_str = ""
 
-    def show_date_picker(self):
-        date_dialog = MDDatePicker()
-        date_dialog.bind(on_save=self.on_date_save)
-        date_dialog.open()
+        def show_date_picker(self):
+            try:
+                date_dialog = MDDatePicker()
+                date_dialog.bind(on_save=self.on_date_save)
+                date_dialog.open()
+            except Exception as e:
+                self.show_dialog("Ошибка Даты", str(e))
 
-    def on_date_save(self, instance, value, date_range):
-        self.date_str = value.strftime("%Y-%m-%d")
-        self.ids.date_btn.text = self.date_str
-        self.update_datetime_label()
+        def on_date_save(self, instance, value, date_range):
+            self.date_str = value.strftime("%Y-%m-%d")
+            self.ids.date_btn.text = self.date_str
+            self.update_datetime_label()
 
-    def show_time_picker(self):
-        time_dialog = MDTimePicker()
-        time_dialog.bind(on_save=self.on_time_save)
-        time_dialog.open()
+        def show_time_picker(self):
+            try:
+                time_dialog = MDTimePicker()
+                time_dialog.bind(on_save=self.on_time_save)
+                time_dialog.open()
+            except Exception as e:
+                self.show_dialog("Ошибка Времени", str(e))
 
-    def on_time_save(self, instance, time):
-        self.time_str = time.strftime("%H:%M")
-        self.ids.time_btn.text = self.time_str
-        self.update_datetime_label()
+        def on_time_save(self, instance, time):
+            self.time_str = time.strftime("%H:%M")
+            self.ids.time_btn.text = self.time_str
+            self.update_datetime_label()
 
-    def update_datetime_label(self):
-        if self.date_str and self.time_str:
-            self.ids.selected_datetime.text = f"Выбрано: {self.date_str} {self.time_str}"
+        def update_datetime_label(self):
+            if self.date_str and self.time_str:
+                self.ids.selected_datetime.text = f"Выбрано: {self.date_str} {self.time_str}"
+            
+        def toggle_button(self, is_active):
+            self.ids.check_btn.disabled = not is_active
+
+        def check_receipt(self):
+            data = {
+                "sum": self.ids.sum_field.text,
+                "fn": self.ids.fn_field.text,
+                "fd": self.ids.fd_field.text,
+                "fp": self.ids.fp_field.text,
+                "date": self.date_str,
+                "time": self.time_str
+            }
+            if not all(data.values()):
+                self.show_dialog("Ошибка", "Заполните все поля!")
+                return
+
+            try:
+                # ЗАГЛУШКА
+                result = {"status": "valid", "message": "Чек найден в базе ФНС (Тест)", "shop": "ООО Ромашка"}
+                App.get_running_app().add_history(data, result)
+                
+                result_screen = self.manager.get_screen('result')
+                result_screen.ids.status_label.text = result['message']
+                result_screen.ids.details_label.text = f"Сумма: {data['sum']} руб.\nМагазин: {result.get('shop')}"
+                self.manager.current = 'result'
+            except Exception as e:
+                self.show_dialog("Ошибка", str(e))
+
+        def show_dialog(self, title, text):
+            dialog = MDDialog(title=title, text=text, buttons=[MDFlatButton(text="OK", on_release=lambda x: dialog.dismiss())])
+            dialog.open()
+
+    class ResultScreen(Screen):
+        pass
+
+    class HistoryScreen(Screen):
+        pass
+
+    class CheckApp(MDApp):
+        store = None
+
+        def build(self):
+            self.theme_cls.primary_palette = "Blue"
+            # Используем безопасную папку для истории
+            data_dir = self.user_data_dir
+            self.store = JsonStore(os.path.join(data_dir, "history.json"))
+            return Builder.load_string(KV)
+
+        def on_start(self):
+            try:
+                self.load_history()
+            except:
+                pass
+
+        def change_screen(self, screen_name):
+            self.root.current = screen_name
+
+        def add_history(self, request_data, result_data):
+            key = datetime.now().strftime("%Y%m%d%H%M%S")
+            self.store.put(key, date=request_data['date'], sum=request_data['sum'], status=result_data['message'])
+            self.load_history()
+
+        def load_history(self):
+            history_screen = self.root.get_screen('history')
+            history_list = history_screen.ids.history_list
+            history_list.clear_widgets()
+            for key in sorted(self.store.keys(), reverse=True):
+                item = self.store.get(key)
+                list_item = TwoLineAvatarIconListItem(text=f"Сумма: {item['sum']} руб.", secondary_text=f"{item['date']}")
+                list_item.add_widget(IconLeftWidget(icon="check-circle"))
+                history_list.add_widget(list_item)
+
+    if __name__ == '__main__':
+        CheckApp().run()
+
+# --- ЛОВЕЦ ОШИБОК (ЭКРАН СМЕРТИ) ---
+except Exception:
+    # Если наверху что-то сломалось, мы попадаем сюда
+    error_text = traceback.format_exc()
+    
+    # Пытаемся показать ошибку на экране
+    try:
+        from kivy.app import App
+        from kivy.uix.label import Label
+        from kivy.uix.scrollview import ScrollView
         
-    def toggle_button(self, is_active):
-        self.ids.check_btn.disabled = not is_active
-
-    def check_receipt(self):
-        # Собираем данные
-        data = {
-            "sum": self.ids.sum_field.text,
-            "fn": self.ids.fn_field.text,
-            "fd": self.ids.fd_field.text,
-            "fp": self.ids.fp_field.text,
-            "date": self.date_str,
-            "time": self.time_str
-        }
-
-        # Простая валидация
-        if not all(data.values()):
-            self.show_dialog("Ошибка", "Заполните все поля!")
-            return
-
-        # Имитация запроса (так как у меня нет твоего реального сервера)
-        # В будущем раскомментируй requests и вставь свою логику
-        try:
-            # response = requests.post(API_URL, json=data)
-            # result = response.json()
-            
-            # ЗАГЛУШКА ДЛЯ ТЕСТА (Покажет, что чек верный)
-            result = {"status": "valid", "message": "Чек найден в базе ФНС", "shop": "ООО Ромашка"}
-            
-            # Сохраняем в историю
-            App.get_running_app().add_history(data, result)
-            
-            # Переходим на экран результата
-            result_screen = self.manager.get_screen('result')
-            result_screen.ids.status_label.text = result['message']
-            result_screen.ids.status_label.theme_text_color = "Custom"
-            result_screen.ids.status_label.text_color = (0, 0.7, 0, 1) if result['status'] == 'valid' else (1, 0, 0, 1)
-            result_screen.ids.details_label.text = f"Сумма: {data['sum']} руб.\nМагазин: {result.get('shop', 'Неизвестно')}"
-            
-            self.manager.current = 'result'
-
-        except Exception as e:
-            self.show_dialog("Ошибка связи", str(e))
-
-    def show_dialog(self, title, text):
-        dialog = MDDialog(title=title, text=text, buttons=[MDFlatButton(text="OK", on_release=lambda x: dialog.dismiss())])
-        dialog.open()
-
-class ResultScreen(Screen):
-    pass
-
-class HistoryScreen(Screen):
-    pass
-
-class CheckApp(MDApp):
-    store = None
-
-    def build(self):
-        self.theme_cls.primary_palette = "Blue"  # Цвет приложения как у ФНС
-        # Локальное хранилище данных
-        self.store = JsonStore("history.json")
-        return Builder.load_string(KV)
-
-    def on_start(self):
-        self.load_history()
-
-    def change_screen(self, screen_name):
-        self.root.current = screen_name
-
-    def add_history(self, request_data, result_data):
-        # Ключ - текущее время, чтобы записи не путались
-        key = datetime.now().strftime("%Y%m%d%H%M%S")
-        self.store.put(key, 
-                       date=request_data['date'], 
-                       sum=request_data['sum'], 
-                       status=result_data['message'])
-        self.load_history()
-
-    def load_history(self):
-        history_screen = self.root.get_screen('history')
-        history_list = history_screen.ids.history_list
-        history_list.clear_widgets()
-
-        # Читаем из памяти телефона (в обратном порядке, чтобы новые были сверху)
-        for key in sorted(self.store.keys(), reverse=True):
-            item = self.store.get(key)
-            
-            icon = "check-circle" if "найден" in item['status'] else "alert-circle"
-            color = (0, 0.7, 0, 1) if "найден" in item['status'] else (1, 0, 0, 1)
-
-            list_item = TwoLineAvatarIconListItem(
-                text=f"Сумма: {item['sum']} руб.",
-                secondary_text=f"{item['date']} - {item['status']}"
-            )
-            list_item.add_widget(IconLeftWidget(icon=icon, theme_text_color="Custom", text_color=color))
-            history_list.add_widget(list_item)
-
-if __name__ == '__main__':
-    CheckApp().run()
+        class CrashApp(App):
+            def build(self):
+                # Черный фон, белый текст, прокрутка
+                return ScrollView(
+                    size_hint=(1, 1),
+                    child=Label(
+                        text=error_text,
+                        size_hint_y=None,
+                        height=2000,  # Высота чтобы влез длинный текст
+                        text_size=(None, None),
+                        halign='left',
+                        valign='top'
+                    )
+                )
+        CrashApp().run()
+    except:
+        # Если даже Ловец сломался - печаль
+        print("CRITICAL FAILURE")
