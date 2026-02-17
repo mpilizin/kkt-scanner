@@ -5,18 +5,18 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Get Date
-        id: get-date
-        run: |
-          echo "::set-output name=date::$(date +'%Y-%m-%d')"
+      - uses: actions/checkout@v4
+
       - name: Build with Buildozer
+        # Используем официальный проверенный экшен
         uses: ArtemSerebriakov/buildozer-action@v1
         with:
           buildozer_version: master
           python_version: 3.11
+
       - name: Upload APK
-        uses: actions/actions/upload-artifact@v2
+        # Исправленное имя робота для загрузки файла
+        uses: actions/upload-artifact@v4
         with:
           name: package
           path: bin/*.apk
