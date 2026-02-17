@@ -8,14 +8,12 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build with Buildozer
-        # Используем официальный проверенный экшен
-        uses: ArtemSerebriakov/buildozer-action@v1
+        # Используем альтернативный стабильный экшен
+        uses: kivy/buildozer-action@master
         with:
-          buildozer_version: master
           python_version: 3.11
 
       - name: Upload APK
-        # Исправленное имя робота для загрузки файла
         uses: actions/upload-artifact@v4
         with:
           name: package
