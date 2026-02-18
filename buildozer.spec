@@ -7,7 +7,7 @@ source.include_exts = py,png,jpg,kv,atlas,json
 version = 3.0
 
 # Необходимые библиотеки для KivyMD и сетевых запросов
-requirements = python3, kivy==2.3.0, kivymd==1.2.0, requests, urllib3, certifi, idna, charset-normalizer, pillow, openssl, pyjnius, android
+requirements = python3,kivy==2.3.0,kivymd==1.2.0,requests,urllib3,certifi,idna,charset-normalizer,pillow,openssl,pyjnius>=1.5.0,android
 
 orientation = portrait
 fullscreen = 0
