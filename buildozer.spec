@@ -6,7 +6,7 @@ source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,json
 version = 3.0
 
-# Основные требования для KivyMD и вашего API
+# Необходимые библиотеки для KivyMD и сетевых запросов
 requirements = python3, kivy==2.3.0, kivymd==1.2.0, requests, urllib3, certifi, idna, charset-normalizer, pillow, openssl, pyjnius, android
 
 orientation = portrait
@@ -25,10 +25,10 @@ android.enable_androidx = True
 
 android.archs = arm64-v8a
 
-# Оптимизированные зависимости для QR-сканера
+# Современные зависимости для QR-сканера
 android.gradle_dependencies = 'com.journeyapps:zxing-android-embedded:4.3.0', 'com.google.zxing:core:3.4.1', 'androidx.appcompat:appcompat:1.4.2'
 
-# Разрешаем сетевой трафик (нужно для работы с вашим доменом кктрф.рф)
+# Разрешение сетевого трафика (критично для работы с вашим API)
 android.manifest.usesCleartextTraffic = true
 
 android.entrypoint = main.py
