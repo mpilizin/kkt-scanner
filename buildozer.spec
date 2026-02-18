@@ -6,27 +6,31 @@ source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,json
 version = 3.0
 
-# Необходимые библиотеки для работы KivyMD и сетевых запросов
+# Основные зависимости (android обязателен для работы разрешений)
 requirements = python3, kivy==2.3.0, kivymd==1.2.0, requests, urllib3, certifi, idna, charset-normalizer, pillow, openssl, pyjnius, android
 
 orientation = portrait
 fullscreen = 0
 
-# Разрешения для работы сканера и интернета
+# Разрешения для камеры и интернета
 android.permissions = INTERNET, CAMERA, RECORD_AUDIO
 
-# Параметры SDK/NDK
+# --- ФИКСАЦИЯ ВЕРСИЙ ДЛЯ СТАБИЛЬНОЙ СБОРКИ ---
 android.api = 33
 android.minapi = 21
+android.build_tools_version = 34.0.0
 android.ndk = 25b
 android.ndk_api = 21
+android.accept_sdk_license = True
+# ---------------------------------------------
+
 android.archs = arm64-v8a
 android.enable_androidx = True
 
-# Современные зависимости для QR-сканера без конфликтов
+# Зависимости для сканера (без конфликтов)
 android.gradle_dependencies = 'com.journeyapps:zxing-android-embedded:4.3.0', 'com.google.zxing:core:3.4.1', 'androidx.appcompat:appcompat:1.4.2'
 
-# Разрешение незащищенного трафика для API
+# Разрешение сетевых запросов к вашему API
 android.manifest.usesCleartextTraffic = true
 
 android.entrypoint = main.py
