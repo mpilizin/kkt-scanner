@@ -34,7 +34,6 @@ try:
             AndroidScanner = IntentIntegrator
         except Exception: pass
 
-    # Справочники
     TAX_TYPES = {1: "ОСН", 2: "УСН", 4: "УСН д-р", 8: "ЕНВД", 16: "ЕСХН", 32: "ПСН (Патент)"}
     OP_TYPES = {1: "Приход", 2: "Возврат прихода", 3: "Расход", 4: "Возврат расхода"}
 
@@ -45,7 +44,6 @@ ScreenManager:
     HistoryScreen:
     AnalyticsScreen:
 
-# --- ГЛАВНЫЙ ЭКРАН ---
 <HomeScreen>:
     name: 'home'
     MDBoxLayout:
@@ -161,7 +159,6 @@ ScreenManager:
                         font_size: "16sp"
                         on_release: root.manual_check()
 
-# --- ЭКРАН ЧЕКА ---
 <ResultScreen>:
     name: 'result'
     MDBoxLayout:
@@ -346,7 +343,6 @@ ScreenManager:
                         theme_text_color: "Secondary"
                         adaptive_height: True
                     
-                    # --- ВОТ СТРОКА, КОТОРУЮ Я ВЕРНУЛ ---
                     MDLabel:
                         id: serial_label
                         text: "ЗАВОД №: ..."
@@ -463,6 +459,7 @@ ScreenManager:
         def send_to_server(self, payload):
             URL = "https://xn--j1aashl.xn--p1ai/Rss_api/proverka.php"
             try:
+                # Используем verify=False, так как на старых Android могут быть проблемы с сертификатами
                 response = requests.post(URL, json=payload, timeout=30, verify=False)
                 res_json = response.json()
                 if res_json.get("status") == "OK":
@@ -526,10 +523,7 @@ ScreenManager:
             self.ids.cashier_label.text = f"Кассир: {data.get('cashier', '-')}"
             self.ids.shift_label.text = f"Смена: {data.get('shift', '-')}. Чек: {data.get('check_num', '-')}"
             self.ids.kkt_label.text = f"РН ККТ: {data.get('kkt_reg', '-')}"
-            
-            # --- ВОТ ЗАПОЛНЕНИЕ ВОЗВРАЩЕННОГО ПОЛЯ ---
             self.ids.serial_label.text = f"ЗАВОД №: {data.get('kkt_serial', '-')}"
-            
             self.ids.fn_label.text = f"ФН: {data.get('fn', '-')}"
             self.ids.fd_label.text = f"ФД: {data.get('fd', '-')}"
             self.ids.fp_label.text = f"ФП: {data.get('fp', '-')}"
@@ -591,6 +585,7 @@ ScreenManager:
             key = datetime.now().strftime("%Y%m%d%H%M%S")
             self.store.put(key, **data)
         def on_activity_result(self, request_code, result_code, intent):
+            # Код возврата от ZXing сканера
             if request_code == 49374:
                 try:
                     from jnius import autoclass
