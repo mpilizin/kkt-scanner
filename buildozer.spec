@@ -5,12 +5,10 @@ package.domain = org.test
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,json
 
-version = 2.0
+version = 3.0
 
-# ВАЖНО: 
-# 1. Убрали pyzbar (он ломал сборку).
-# 2. Добавили pyjnius (чтобы вызывать родной сканер Android).
-# 3. pillow, openssl - для стабильности.
+# 1. pyjnius - мост к Android
+# 2. pillow, openssl - защита от вылетов KivyMD
 requirements = python3, kivy==2.3.0, kivymd, requests, urllib3, certifi, idna, charset-normalizer, pillow, openssl, pyjnius
 
 orientation = portrait
@@ -19,13 +17,14 @@ fullscreen = 0
 # Разрешения
 android.permissions = INTERNET, CAMERA, RECORD_AUDIO
 
-# Подключаем профессиональный сканер (ZXing) через Gradle
+# ПОДКЛЮЧАЕМ НАТИВНЫЙ СКАНЕР (ZXing)
+# Это скачает Java-библиотеки автоматически при сборке
 android.gradle_dependencies = com.google.zxing:core:3.4.1, com.journeyapps:zxing-android-embedded:4.3.0, androidx.appcompat:appcompat:1.4.2
 
-# Включаем поддержку современных библиотек Android
+# Важно для новых библиотек
 android.enable_androidx = True
 
-# Настройки Android
+# Стандартные настройки
 android.api = 33
 android.minapi = 21
 android.ndk = 25b
